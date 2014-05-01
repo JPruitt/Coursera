@@ -1,4 +1,3 @@
-
 library("ggplot2", lib.loc="C:/Program Files/R/R-2.15.2/library")
 library("lattice", lib.loc="C:/Program Files/R/R-2.15.2/library")
 library("knitr", lib.loc="C:/Program Files/R/R-2.15.2/library")
