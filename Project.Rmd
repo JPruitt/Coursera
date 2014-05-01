@@ -1,0 +1,539 @@
+
+### Gender Based Income Inequality Over Time
+Conducted by MAJ Joseph J. Pruitt
+
+```{r echo=FALSE}
+## Load data set
+load(url("http://bit.ly/dasi_gss_data"))
+## Load inference package
+load(url("http://s3.amazonaws.com/assets.datacamp.com/course/dasi/inference.Rdata"))
+options(scipen=999)
+years<-c(1972, 1973, 1974, 1975, 1976, 1977, 1978, 1980, 1982, 1983, 1984, 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1993, 1994, 1996, 1998, 2000, 2002, 2004, 2006, 2008, 2010, 2012)
+```
+
+### Introduction:
+
+This research is designed to answer the question:
+##Have full-time employed unmarried men earned more average income than full-time employed unmarried women between 1972 and 2012?
+
+The American press and many political figures have historically used a gender based income inequality to mobilize public opinion, enact legislation, and "nay-say" policy decisions perceived to exacerbate the perceived gap. The following research engenders an attempt to identify and quantify the inequality over time from 1972 through 2012. The results will allow the researcher to better contextualize the political arguments grounded in statistical analysis.
+
+Consumers of this analysis will be better able to judge the veracity of, sometimes, emotionally charged arguments, and better inform their own political judgments.
+
+### Data:
+
+```{r echo=FALSE}
+## Subset data to the variables of interest
+selectCol<-c(2,3,4,5,8,12,15,18,17,27,28)
+
+## includes variables: year, age, race, sex, hispanic, educ, degree, wrksta, marital, spwrksta,
+##      coninc, & region.
+myData<-gss[ ,selectCol]
+
+## further subset data to only single men and women (exclude "Married", "Separated", and "NA") 
+## (coninc is household income, inclusion of other group may skew results).
+myData<-myData[myData$marital=="Widowed" | myData$marital=="Divorced" | myData$marital=="Never Married", ]
+
+## Remove "NA" values.
+completeData<-complete.cases(myData[, "marital"])
+myData<-myData[completeData, ]
+
+## Remove "NA" values for coninc (income) variable.
+completeData<-complete.cases(myData[, "coninc"])
+myData<-myData[completeData, ]
+
+## Subset to include only those respondents employed full-time.
+myData<-myData[myData$wrkstat=="Working Fulltime", ]
+```
+I will use a subset of the General Social Survey (GSS) data provided by: Smith, Tom W., Michael Hout, and Peter V. Marsden. General Social Survey, 1972-2012 [Cumulative File]. ICPSR34802-v1. Storrs, CT: Roper Center for Public Opinion Research, University of Connecticut /Ann Arbor, MI: Inter-university Consortium for Political and Social Research [distributors], 2013-09-11. doi:10.3886/ICPSR34802.v1.  The GSS is a sociological survey used to collect data on demographic characteristics and attitudes of residents of the United States. The survey is conducted face-to-face with an in-person interview by the National Opinion Research Center at the University of Chicago, of adults (over the age of 18) in randomly selected households.
+
+Persistent URL for R Data: www.icpsr.umich.edu/cgi-bin/bob/zipcart2?path=ICPSR&study=34802&bundle=rdata&ds=1&dups=yes
+
+This research used 10,358 of the 57,061 respondents and 11 of the 114 variables. Each respondent represents an full-time employed, unmarried man or woman randomly selected by the GSS researchers over a 21 year period (1972 - 2012). The two variables considered for correlation are the sex (categorical, encodes the respondents gender (Male or Female)) and coninc (numeric, reports the respondents household income in constant 1986 dollars).
+
+Additional variables examined for possible confounding influence or to subset the data were year (numeric, the year the data were collected), age (numeric, the age of the respondent in whole years), race (categorical, the respondents race listed as White, Black, or Other), educ (numeric, respondent's whole years of completed education), degree (categorical, respondent's highest level of completed education, listed as Less Than High School, High School, Junior College, Bachelor's Degree, or Graduate Degree), wrkstat (categorical, respondent's work status listed as Full Time, Retired, Keeping House, Part Time, School, or Other), spwrksta (categorical, respondents' spouse's work status listed as Full Time, Part Time, Temporarily Not Working, Unemployed (Laid Off), Retired, or Other), marital (categorical, respondent's marital status listed as Married, Widowed, Divorced, Separated, or Never Married), and region (categorical, respondent's region of residence listed as South Atlantic, Middle Atlantic, New England, Pacific, North-east Central, South-East Central, South-West Central, South-West Central, or Mountain).
+
+### Exploratory data analysis:
+
+### Summary of income data for full-time employed unmarried adults from 1972 to 2012 in constant 1986 dollars.
+
+Summary of income data over the entire 41 year period from 1972 through 2012.
+```{r echo=FALSE}
+summary(myData$coninc)
+```
+
+From 1972 to 2012, the full-time employed unmarried adult mean income is: 
+```{r echo=FALSE} 
+mean(myData$coninc, na.rm=TRUE)
+```
+
+```{r echo=FALSE}
+reportIncome<-(myData$coninc)
+hist(reportIncome, col="green", main="Income distibution from 1972 through 2012", 
+     xlab="Income in constant 1986 dollars", ylab="Frequency")
+```
+
+The data are right skewed (expected from the presence of a natural minimum value at zero and decreasing higher values) with the vast majority of incomes falling below the $50,000 mark.
+
+Over the same period, the respective mean full-time employed unmarried adult male and female incomes are:
+```{r echo=FALSE} 
+by(myData$coninc, myData$sex, mean)
+```
+and medians are:
+```{r echo=FALSE} 
+by(myData$coninc, myData$sex, median)
+```
+
+```{r fig.width=11, fig.height=7, echo=FALSE}
+par(mfrow = c(1,2))
+maleData<-myData[myData$sex=="Male", ]
+hist(maleData$coninc, col="blue", main="Male Income distibution from 1972 through 2012", 
+     xlab="Income in constant 1986 dollars", ylab="Frequency")
+femaleData<-myData[myData$sex=="Female", ]
+hist(femaleData$coninc, col="red", main="Female Income distibution from 1972 through 2012", 
+     xlab="Income in constant 1986 dollars", ylab="Frequency")
+```
+The two distributions look similar with some discernible differences in frequency, especially at the higher income levels.
+
+### Median income data displayed by year.
+
+```{r echo=FALSE}
+boxplot(myData$coninc ~ myData$year, col="green", xlab="Year", 
+        ylab="Income in constant 1986 dollars", main="Median Income by Year")
+```
+Though some variability exists, incomes seems relatively stable over the duration of the 41 year period.
+
+```{r fig.width=11, fig.height=7, echo=FALSE}
+par(mfrow = c(1,2))
+boxplot(maleData$coninc ~ maleData$year, col="blue", xlab="Year", 
+        ylab="Income in constant 1986 dollars", main="Male Median Income by Year")
+boxplot(femaleData$coninc ~ femaleData$year, col="red", xlab="Year", 
+        ylab="Income in constant 1986 dollars", main="Female Median Income by Year")
+```
+
+A visual analysis seems to indicate that female median income has consistently lower values over time.
+
+```{r fig.width=11, fig.height=7, echo=FALSE}
+par(mfrow = c(1,2))
+meanInc.72<-myData[myData$year==1972, ]
+meanInc.12<-myData[myData$year==2012, ]
+boxplot(meanInc.72$coninc ~ meanInc.72$sex, xlab="Income in constant dollars", 
+        main="1972 Median Income Data", ylab="Gender", col=(c("blue","red")), horizontal=T)
+boxplot(meanInc.12$coninc ~ meanInc.12$sex, xlab="Income in constant dollars", 
+        main="2012 Median Income Data", ylab="Gender", col=(c("blue","red")), horizontal=T)
+```
+
+A closer look at the end points (with respect to year) seems to reinforce the claim that female incomes are consistently lower.
+
+### Inference:
+
+### Hypotheses #1:  
+
+$\sf{H_{0}}$: Incomes of full-time employed men ($\sf{I_{M}}$) are equal to those of full-time employed women ($\sf{I_{W}}$).
+
+$\sf{H_{0}}$: $\sf{I_{M}}$ - $\sf{I_{W}}$ = 0.
+
+$\sf{H_{A}}$: Incomes of full-time employed men ($\sf{I_{M}}$) are greater than those of full-time employed women ($\sf{I_{W}}$).
+
+$\sf{H_{A}}$: $\sf{I_{M}}$ - $\sf{I_{W}}$ $\sf{<>}$ 0.
+
+#### Check conditions:
+
+1. Independence:
+  
+  a. Within Groups: sampled observations are independent.
+    
+    -Random sample conducted by GSS researchers.
+    
+    -Sampled without replacement, below numbers of respondents represent less than 10% of all full-time employed, unmarried men and women respectively.
+
+  b. Between Groups: we can assume that the incomes of full-time employed, unmarried men are independent of the incomes of full-time employed, unmarried women.
+  
+2. Sample Size/Skew:  Each sample size is much larger than 30 compensating for the skew of the data.
+
+```{r echo=FALSE}
+by(myData$coninc, myData$sex, length)
+```    
+#### Hypothesis Test:
+
+The significance level for the following test is 0.05 (5%).
+
+```{r echo=FALSE}
+suppressWarnings(inference(y = myData$coninc, x = myData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+```    
+
+Reject the null hypothesis; $\sf{I_{M}}$ - $\sf{I_{W}}$ = 0. If there is no difference in the mean incomes of full-time employed, unmarried men and women, there is a near zero percent probability of observing a difference of $9,694.84 or more in a random sample of 4937 men and 5420 women. 
+
+#### Confidence Interval:
+```{r echo=FALSE}
+suppressWarnings(inference(y = myData$coninc, x = myData$sex, est = "mean", type = "ci", conflevel = 0.95, method = "theoretical", order = c("Male","Female")))
+```    
+We are 95% confident that full-time employed, unmarried men earned between $8,554.63 and $10,835.03 more than full-time employed, unmarried women between 1972 and 2012.
+
+But, how does it breakout by year?
+
+### Hypotheses #2:  
+
+$\sf{H_{0}(i)}$: Incomes of full-time employed men ($\sf{I_{M}(i)}$) are equal to those of full-time employed women ($\sf{I_{W}(i)}$); i={1-29}, the 29 years the GSS was conducted.
+
+$\sf{H_{0}(i)}$: $\sf{I_{M}(i)}$ - $\sf{I_{W}(i)}$ = 0; i={1-29}, the 29 years the GSS was conducted.
+
+$\sf{H_{A}(i)}$: Incomes of full-time employed men ($\sf{I_{M}(i)}$) are greater than those of full-time employed women ($\sf{I_{W}(i)}$); i={1-29}, the 29 years the GSS was conducted.
+
+$\sf{H_{A}(i)}$: $\sf{I_{M}(i)}$ - $\sf{I_{W}(i)}$ $\sf{<>}$ 0; i={1-29}, the 29 years the GSS was conducted.
+
+#### Check conditions:
+
+1. Independence:
+  
+  a. Within Groups: sampled observations are independent.
+    
+    -Random sample conducted by GSS researchers.
+    
+    -Sampled without replacement, below numbers of respondents represent less than 10% of all full-time employed, unmarried men and women respectively.
+
+  b. Between Groups: we can assume that the incomes of full-time employed, unmarried men are independent of the incomes of full-time employed, unmarried women.
+  
+2.  Sample Size/Skew: Each sample size is larger than 30 compensating for the skew of the data.
+
+```{r echo=FALSE}
+maleByYear<-by(maleData$coninc, maleData$year, length)
+femaleByYear<-by(femaleData$coninc, femaleData$year, length)
+```    
+Summary of the number of full-time employed, unmarried male respondents by year.
+```{r echo=FALSE}
+summary(maleByYear)
+```   
+Summary of the number of full-time employed, unmarried female respondents by year.
+```{r echo=FALSE}
+summary(femaleByYear)
+```    
+#### Adjusted significance value:
+
+The year variable has 29 levels, so:
+
+$\sf{K = k(k-1)/2;  k=29}$
+
+$\sf{K = 29(29-1)/2=}$ `r (29*28)/2 `
+
+$\sf{a_{*} = a/K;  a = 0.05}$
+
+$\sf{a_{*} = 0.05/}$  `r (29*28)/2 `  $\sf{ = }$ `r format(round((0.05/((29*28)/2)), 8), nsmall = 8) `
+
+#### Hypothesis Tests:
+```{r echo = FALSE}
+i=1
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+i=i+1
+
+  ## subset myData
+  yearData<-myData[myData$year == years[i], ]
+  
+  print(paste(years[i], ": Difference of means."))
+  
+  ## execute tests
+  suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ht", null = 0, alternative ="twosided", method = "theoretical", order = c("Male","Female")))
+```    
+Hypothesis Testing indicates a rejection of the null hypothesis for theyears 1980, 1983, 1985, 1989, 1994, 200, 2002, 2004, and 2008 given the adjusted significance value; and a failure to reject the null hypothesis for 16 of the remaining years to include the nd points of 1972 and 2012. Four years (1973, 1982, 1996, and 2006) produced p-values too close to be conclusive.
+
+Of note, we would fail to reject the null hypothesis at a 0.05 significance level for the years 1974, 1988, 1990, and 1993.
+
+Taken individually, the end points (1972 and 2012) produce the following 95% confidence intervals:
+
+
+```{r echo = FALSE}
+
+conLevel<-1-(0.05)
+
+## subset myData
+yearData<-myData[myData$year == 1972, ]
+  
+print("1972: 95% Confidence interval for difference of means.")
+  
+## execute tests
+suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ci", conflevel = conLevel, method = "theoretical", order = c("Male","Female")))
+
+## subset myData
+yearData<-myData[myData$year == 2012, ]
+  
+print("1972: 95% Confidence interval for difference of means.")
+  
+## execute tests
+suppressWarnings(inference(y = yearData$coninc, x = yearData$sex, est = "mean", type = "ci", conflevel = conLevel, method = "theoretical", order = c("Male","Female")))
+
+```    
+
+### Conclusion:
+
+Despite some of the anomalies over time, full-time employed, single men seem to earn more on average than full-time employed, single women. The 95% confidence intervals overlap significantly suggesting that there is no statistical difference (either improvement or degradation) between the 1972 data and the 2012 data.
+
+The erratic behavior of the difference of means over time also suggests that there may be something else going on here; that is, other variables may be influencing incomes.  Further study is required to examine the influences of education and other variables on household income.
+
+
+### References:
+
+Smith, Tom W., Michael Hout, and Peter V. Marsden. General Social Survey, 1972-2012 [Cumulative File]. ICPSR34802-v1. Storrs, CT: Roper Center for Public Opinion Research, University of Connecticut /Ann Arbor, MI: Inter-university Consortium for Political and Social Research [distributors], 2013-09-11. doi:10.3886/ICPSR34802.v1.  
+
+Persistent URL for R Data: www.icpsr.umich.edu/cgi-bin/bob/zipcart2?path=ICPSR&study=34802&bundle=rdata&ds=1&dups=yes
+
+### Appendix: Page of Data.
+
+```{r echo = FALSE}
+
+print("First 20 rows.")
+
+head(myData, n = 20L)
+
+print("Last 20 rows.")
+
+tail(myData, n = 20L)
+```
